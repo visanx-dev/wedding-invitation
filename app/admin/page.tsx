@@ -43,6 +43,7 @@ import {
   WeddingProvider,
 } from "@/context/WeddingContext";
 import { wedding as defaultWedding } from "@/data/wedding";
+import { getRsvps, isSupabaseConfigured } from "@/lib/supabase";
 
 interface RSVPRecord {
   id: string;
@@ -157,23 +158,17 @@ function AdminDashboardContent() {
   const [newThemeId, setNewThemeId] = useState("royal-emerald");
   const [newNotes, setNewNotes] = useState("");
 
-  // Load RSVPs from localStorage
-  const loadRsvps = () => {
-    if (typeof window !== "undefined") {
-      try {
-        const stored = localStorage.getItem("wedding_rsvps");
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setRsvps(parsed);
-            return;
-          }
-        }
-        localStorage.setItem("wedding_rsvps", JSON.stringify(DEMO_RSVPS));
-        setRsvps(DEMO_RSVPS);
-      } catch (e) {
-        console.error("Could not load RSVPs", e);
+  // Load RSVPs from Supabase or localStorage
+  const loadRsvps = async () => {
+    try {
+      const data = await getRsvps(activeClientId);
+      if (Array.isArray(data) && data.length > 0) {
+        setRsvps(data);
+        return;
       }
+      setRsvps(DEMO_RSVPS);
+    } catch (e) {
+      console.error("Could not load RSVPs", e);
     }
   };
 
@@ -186,7 +181,7 @@ function AdminDashboardContent() {
       window.removeEventListener("rsvp_updated", handleUpdate);
       window.removeEventListener("storage", handleUpdate);
     };
-  }, []);
+  }, [activeClientId]);
 
   // Compute RSVP Stats
   const attendingList = rsvps.filter((r) => r.attendance === "accept");
@@ -827,6 +822,44 @@ function AdminDashboardContent() {
         {/* TAB 2: ACTIVE RSVP TRACKER */}
         {activeTab === "rsvps" && (
           <div className="space-y-6">
+            {/* Supabase Connection Status Banner */}
+            <div
+              className={`p-4 rounded-xs border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-sans-luxury ${
+                isSupabaseConfigured()
+                  ? "bg-emerald-50/70 border-emerald-300 text-emerald-900"
+                  : "bg-amber-50/70 border-amber-300/80 text-amber-900"
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <span
+                  className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                    isSupabaseConfigured() ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
+                  }`}
+                />
+                <div>
+                  <span className="font-medium tracking-wide block">
+                    {isSupabaseConfigured()
+                      ? "Supabase Live Database Connected • Real-time Cross-Device Sync Active"
+                      : "Local Storage Mode • Connect Supabase to sync RSVPs live across all guests' smartphones"}
+                  </span>
+                  <span className="block text-[11px] opacity-75 mt-0.5">
+                    {isSupabaseConfigured()
+                      ? "RSVP submissions from all guests are directly stored in your PostgreSQL cloud database."
+                      : "Run supabase-schema.sql in your Supabase dashboard and add keys to .env.local"}
+                  </span>
+                </div>
+              </div>
+              <a
+                href="https://supabase.com/dashboard"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 rounded-xs border border-current font-medium text-[11px] uppercase tracking-wider hover:bg-black/5 shrink-0 flex items-center gap-1"
+              >
+                <span>Supabase Dashboard</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+
             {/* RSVP KPIs - 6 Cards for Both Places and Individual Events */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               <div className="bg-white p-4 rounded-xs border border-[#C5A880]/30 shadow-xs">

@@ -6,6 +6,7 @@ import { CheckCircle2, Heart, Sparkles, Send, RefreshCw, AlertCircle, Check } fr
 import confetti from "canvas-confetti";
 import { useWedding } from "@/context/WeddingContext";
 import { BotanicalDivider, BotanicalCorner } from "./BotanicalDivider";
+import { insertRsvp } from "@/lib/supabase";
 
 export interface RSVPFormData {
   fullName: string;
@@ -19,7 +20,7 @@ export interface RSVPFormData {
 }
 
 export function RSVP() {
-  const { wedding, inviteScope } = useWedding();
+  const { wedding, inviteScope, activeClientId } = useWedding();
   const defaultScope =
     inviteScope === "reception"
       ? "reception"
@@ -68,40 +69,20 @@ export function RSVP() {
 
     setIsSubmitting(true);
 
-    /*
-     * SUPABASE INTEGRATION NOTE:
-     * To persist to Supabase, replace this local simulation with:
-     * 
-     * const { data, error } = await supabase
-     *   .from('rsvps')
-     *   .insert([{
-     *     full_name: formData.fullName,
-     *     email: formData.email,
-     *     phone: formData.phone,
-     *     guest_count: formData.guestCount,
-     *     attendance: formData.attendance,
-     *     meal_preference: formData.mealPreference,
-     *     notes: formData.notes,
-     *     created_at: new Date().toISOString()
-     *   }]);
-     */
-
     try {
-      // Simulate network request
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // Save locally to localStorage for preview and admin panel
-      if (typeof window !== "undefined") {
-        const existing = JSON.parse(localStorage.getItem("wedding_rsvps") || "[]");
-        const newRsvp = {
-          id: `rsvp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-          ...formData,
-          timestamp: new Date().toISOString(),
-        };
-        existing.push(newRsvp);
-        localStorage.setItem("wedding_rsvps", JSON.stringify(existing));
-        window.dispatchEvent(new Event("rsvp_updated"));
-      }
+      // Persist to Supabase with automatic local storage fallback
+      await insertRsvp({
+        client_id: activeClientId || "amal-nethmi",
+        full_name: formData.fullName.trim(),
+        email: formData.email.trim() || undefined,
+        phone: formData.phone.trim() || undefined,
+        guest_count: formData.guestCount,
+        attendance: formData.attendance,
+        events_attending: formData.eventsAttending,
+        meal_preference: formData.mealPreference,
+        notes: formData.notes.trim() || undefined,
+        created_at: new Date().toISOString(),
+      });
 
       setIsSubmitted(true);
 
